@@ -10,7 +10,7 @@ Project Organization
     ├── Makefile           <- Makefile with commands like `make data` or `make train`
     ├── README.md          <- The top-level README for developers using this project.
     ├── data
-    │   ├── processed      <- The final, canonical data sets for modeling.
+    │   ├── output      <- The final, canonical data sets for modeling.
     │   └── archive        <- Old versions of the movie review data.
     │
     ├── docs               <- A default Sphinx project; see sphinx-doc.org for details
