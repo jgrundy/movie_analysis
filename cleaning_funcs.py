@@ -23,11 +23,11 @@ def output_data(df, file):
     df.to_csv(filename, index=False)
     print('Data output to '+filename)
 
-def text_preprocessing(text):
+def text_preprocessing(text, lemma='accurate'):
     """
     Preprocesses text by removing punctuation, lowercasing, and tokenizing.
-    
-    NOTE: not happy with how the lemmatizer works on adverbs
+
+    NOTE: https://github.com/bjascob/LemmInflect
     """
 
     nlp = sp.load('en_core_web_sm')
@@ -39,13 +39,18 @@ def text_preprocessing(text):
         clean_text = remove_punctuation(text.lower())
 
         doc = nlp(clean_text)
-        # tokens = [token.lemma_ for token in doc if not token.is_stop]
-        tokens = [token._.lemma() for token in doc if not token.is_stop]
+
+        if lemma == 'accurate':
+            tokens = [token._.lemma() for token in doc if not token.is_stop]
+        elif lemma == 'fast':
+            tokens = [token.lemma_ for token in doc if not token.is_stop]
+        else:
+            raise ValueError('Lemma must be either accurate or fast')
+
         return tokens
     except:
         return ''
 
-#function for removing punctuation
 def remove_punctuation(text):
     """
     Removes punctuation from text.
@@ -55,7 +60,6 @@ def remove_punctuation(text):
         text = text.replace(char, '')
     return text
 
-#function for joining list of strings
 def join_list(list):
     """
     Joins list of strings into a single string.
