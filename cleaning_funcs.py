@@ -23,6 +23,15 @@ def output_data(df, file):
     df.to_csv(filename, index=False)
     print('Data output to '+filename)
 
+def get_director(movie_object):
+    """
+    Returns director of a movie object.
+    """
+    if movie_object.get('director')[0]['name']:
+        return movie_object.get('director')[0]['name']
+    else:
+        return "No director found."
+
 def text_preprocessing(text, lemma='accurate'):
     """
     Preprocesses text by removing punctuation, lowercasing, and tokenizing.
