@@ -17,20 +17,22 @@ def load_data(file):
 def output_data(df, file):
     """
     Outputs data to a csv file at a relative path.
+
+    NOTE: Edit to check for existing dataset and move to archive.
     """
     dirname = os.path.dirname(os.path.abspath("__file__"))
     filename = os.path.join(dirname, 'data/output/'+file)
     df.to_csv(filename, index=False)
     print('Data output to '+filename)
 
-def get_director(movie_object):
-    """
-    Returns director of a movie object.
-    """
-    if movie_object.get('director')[0]['name']:
-        return movie_object.get('director')[0]['name']
-    else:
-        return "No director found."
+# def get_director(movie_object):
+#     """
+#     Returns director of a movie object.
+#     """
+#     try:
+#         return movie_object.get('director')[0]['name']
+#     except:
+#         return "No director found."
 
 def text_preprocessing(text, lemma='accurate'):
     """
