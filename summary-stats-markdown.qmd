@@ -1,0 +1,352 @@
+---
+title: "Movies"
+format: docx
+---
+
+```{r, eval=TRUE, include=FALSE}
+library(knitr)
+library(readr)
+library(tidyverse)
+library(lubridate)
+library(broom)
+library(arsenal)
+
+
+# movie_list <- read_csv("Documents/movie_rater/movie_analysis/data/output/movie_list_current_clean.csv")
+# setwd("~Documents/movie_rater/movie_analysis")
+movie_list <- read_csv("data/output/movie_list_current_clean.csv")
+
+# clean data and add features ---------------------------------------------
+
+setwd("~/Documents/movie_rater/movie_analysis")
+
+movies <-
+  movie_list %>% 
+  rename(imdb_year = Year) %>% 
+  rename_all(tolower) %>% 
+  rename(imdb_id =`imdb id`,
+         imdb_score = `imdb score`) %>% 
+  separate(month, into = c("month_reviewed", "year_reviewed"), sep = "/") %>% 
+  mutate_at(c("month_reviewed", "year_reviewed"), as.numeric) %>% 
+  mutate(decade = imdb_year - imdb_year %% 10 )
+
+movies.long <-
+  movies %>% 
+  pivot_longer(cols = sebastian:average,
+               names_to = "reviewer",
+               values_to = "reviewer_score")
+
+movies.genres <-
+  movies %>% 
+  pivot_longer(
+    cols = genre_1:genre_6,
+    names_to = "count_genres",
+    values_to = "genre"
+  ) %>% 
+  filter(!is.na(genre))
+
+movies.genres.long <-
+  movies.long %>%
+  pivot_longer(cols = genre_1:genre_6,
+               names_to = "count_genres",
+               values_to = "genre") %>%
+  filter(!is.na(genre))
+
+
+```
+
+
+# Stats by person
+
+## Jon
+
+Jon tended to rate movies highly cmpared to the rest of the reviewers as well as IMDB reviewers.
+
+```{r}
+
+jon <- summary(movies$jon)
+average <- summary(movies$average)
+imdb <- summary(movies$imdb_score)
+
+kable(rbind(jon, 
+            average, 
+            imdb))
+
+```
+
+
+```{r}
+
+ggplot(movies) +
+  geom_density(aes(x = jon, fill = "Jon"),
+               alpha = 0.5) +
+  geom_density(aes(x = average, fill = "Average"),
+               alpha = 0.3) +
+  geom_density(aes(x = imdb_score, color = "IMDB Score")) +
+  scale_fill_manual(name = "", values = c("Jon" = "darkgreen", "Average" = "goldenrod1")) +
+  scale_color_manual(name = "", values = c("IMDB Score" = "black")) +
+  xlab("Score") +
+  ylab("Density")
+
+```
+
+## Dazraf
+
+Dazraf tended to have scores close to average and also rated movies more highly than IMDB users.
+
+```{r}
+
+dazraf <- summary(movies$dazraf)
+average <- summary(movies$average)
+imdb <- summary(movies$imdb_score)
+
+kable(rbind(dazraf, 
+            average, 
+            imdb))
+
+```
+
+
+```{r}
+
+ggplot(movies) +
+  geom_density(aes(x = dazraf, fill = "Dazraf"),
+               alpha = 0.5) +
+  geom_density(aes(x = average, fill = "Average"),
+               alpha = 0.3) +
+  geom_density(aes(x = imdb_score, color = "IMDB Score")) +
+  scale_fill_manual(name = "", values = c("Dazraf" = "red", "Average" = "goldenrod1")) +
+  scale_color_manual(name = "", values = c("IMDB Score" = "black")) +
+  xlab("Score") +
+  ylab("Density")
+
+```
+
+## Sebastian
+
+Sebastian rate movies closest to both the average reviewer score and IMDB users. A true man of the people.
+
+```{r}
+
+sebastian <- summary(movies$sebastian)
+average <- summary(movies$average)
+imdb <- summary(movies$imdb_score)
+
+kable(rbind(sebastian, 
+            average, 
+            imdb))
+
+```
+
+
+```{r}
+
+ggplot(movies) +
+  geom_density(aes(x = sebastian, fill = "Sebastian"),
+               alpha = 0.5) +
+  geom_density(aes(x = average, fill = "Average"),
+               alpha = 0.3) +
+  geom_density(aes(x = imdb_score, color = "IMDB Score")) +
+  scale_fill_manual(name = "", values = c("Sebastian" = "deepskyblue", "Average" = "goldenrod1")) +
+  scale_color_manual(name = "", values = c("IMDB Score" = "black")) +
+  xlab("Score") +
+  ylab("Density")
+
+```
+
+## The reviewers relative to each other
+
+```{r}
+
+plot_multi_histogram <- function(df, feature, label_column) {
+  plt <-
+    ggplot(df, aes(x = eval(parse(text = feature)), fill = eval(parse(text =
+                                                                        label_column)))) +
+    # geom_histogram(
+    #   alpha = 0.7,
+    #   position = "identity",
+    #   aes(y = ..density..),
+    #   color = "black"
+    # ) +
+    geom_density(alpha = 0.5) +
+    geom_vline(
+      aes(xintercept = mean(eval(
+        parse(text = feature)
+      ))),
+      color = "black",
+      linetype = "dashed",
+      size = 1
+    ) +
+    labs(x = "Score", y = "Density")
+  plt + guides(fill = guide_legend(title = label_column))
+}
+
+plot_multi_histogram(movies.long %>% filter(reviewer != "average"),
+                     'reviewer_score',
+                     'reviewer')
+
+ggplot(movies.long, aes(reviewer_score, colour = reviewer)) + 
+  stat_ecdf()+
+  scale_colour_hue(name="Reviewer"#, 
+                   # labels=c('AAA','BBB', 'CCC')
+                   ) +
+  labs(x = "Score", y = "Cumulative Density")
+
+```
+
+# Reviewers vs the reviewer who picked the movie
+
+All reviewers took turns picking movies and this is how their picks stacked up.
+
+```{r results='asis'}
+
+summary(
+  tableby(
+    pick_coded ~ kwt(dazraf) + kwt(sebastian) + kwt(jon) + kwt(average),
+    data = movies %>%
+      mutate(pick_coded = ifelse(
+        pick == "Farzad",
+        "Dazraf pick",
+        ifelse(
+          pick == "Steven",
+          "Sebastian pick",
+          ifelse(pick == "Jon",
+                 "Jon pick",
+                 "")
+        )
+      )) %>%
+      filter(pick != "All"),
+    total = FALSE
+  ),
+  text = TRUE,
+  pfootnote = TRUE
+)
+
+```
+
+Knowing that the data are non-parametric, a Kruskal-Wallis test of significance was used to compare how each reviewer scored each others' picks. On average, there was no significant difference between how the reviewers rated each others picks. However, on an individual basis, both Sebastian and Jon rated each reviewer's picks signficantly different. Dazraf didn't.
+
+Given that Sebastian and Jon both rated Dazraf's picks the lowest compared to each others' picks, it can be assumed that only Dazraf tended to rate Dazraf's picks well.
+
+# Over the years
+
+Here's how the reviewers scored movies based on the decade the movie was released in.
+
+```{r}
+
+kable(
+  movies %>%
+  group_by(decade) %>%
+  summarise(
+    count_movies = n(),
+    jon_average = mean(jon),
+    jon_range = paste0(min(jon), " - ", max(jon)),
+    dazraf_average = mean(dazraf),
+    dazraf_range = paste0(min(dazraf), " - ", max(dazraf)),
+    sebastian_average = mean(sebastian),
+    sebastian_range = paste0(min(sebastian), " - ", max(sebastian)),
+    avg_average = mean(average),
+    avg_range = paste0(min(average), " - ", max(average)),
+  )
+)
+
+```
+
+The 60s had the highest scores, with all three reviewers rating 60s movies highest of all decades from which their movies were selected. However only 3 movies they watched were released in the 1960s. The majority of their picks came from 1990 through the present day and their more even scores tend to reflect that.
+
+# Genres
+
+It should be noted that movies could be labelled with multiple genres and most of the movies that the reviewers picked were categorized with multiple genres. There were between 1 and 6 labelled genres per movie.
+
+```{r}
+
+kable(movies.genres %>%
+        count(genre) %>%
+        arrange(desc(n)))
+
+kable(movies.genres.long %>%
+       group_by(reviewer, genre) %>%
+       summarise(mean_score = mean(reviewer_score)) %>% 
+       filter(reviewer == "average") %>% 
+       arrange(desc(mean_score)) #%>% 
+       # pivot_wider(names_from = genre, values_from = mean_score)
+)
+
+```
+
+Most movies were categorized as eihter a comedy or drama with the crime, thriller, and action genres rounding out the top 5 genres most represented in their selection.
+
+By rating, however, war was the highest rated genre. History, biography, sci-fi, and animation were also highly scored by the reviewers.
+
+To see if the reviewers were unique in their love of these genre specific films, we also looked at how IMDB users rated their selections by genre.
+
+```{r}
+
+kable(movies.genres.long %>%
+       group_by(genre) %>%
+       summarise(mean_score = mean(imdb_score)) %>% 
+       # filter(reviewer == "average") %>% 
+       arrange(desc(mean_score))
+)
+
+```
+
+With the notable exception of film noir, the highest reviewer-rated genres were reflective of general tastes. This indicates that it's more likely than not that the reviewers selected well-loved movies from those genres knowing that they were already highly rated by the public as well as critics.
+
+For a more granular view, here are the top 5 highest rated genres by reviewer.
+
+## Jon's top 5 genres
+
+
+```{r}
+
+kable(
+  movies.genres.long %>%
+    group_by(reviewer, genre) %>%
+    summarise(mean_score = mean(reviewer_score)) %>%
+    filter(reviewer == "jon") %>%
+    arrange(desc(mean_score)) %>%
+    slice(1:5)
+)
+
+```
+
+Jon's favorite film(s) were of the film noir genre. His other highly rated movies were reflected in the average ratings.
+
+## Dazraf's top 5 genres
+
+```{r}
+
+kable(
+  movies.genres.long %>%
+    group_by(reviewer, genre) %>%
+    summarise(mean_score = mean(reviewer_score)) %>%
+    filter(reviewer == "dazraf") %>%
+    arrange(desc(mean_score)) %>%
+    slice(1:5)
+)
+
+```
+
+Dazraf's favorite films were reflective of average ratings with the exception of documentaries.
+
+## Sebastian's top 5 genres
+
+```{r}
+
+kable(
+  movies.genres.long %>%
+    group_by(reviewer, genre) %>%
+    summarise(mean_score = mean(reviewer_score)) %>%
+    filter(reviewer == "sebastian") %>%
+    arrange(desc(mean_score)) %>%
+    slice(1:5)
+)
+
+```
+
+Sebastian's top 5 highest rated genres deviated the most from the average, with film noir and mystery films making his top 5.
+
+It seems that Dazraf might particularly dislike the film noir genre given its appearance in both Jon and Sebastian's top 5 and absence in the average top 5.
+
+It should be noted that after the top 5, the individual reviewers' preferences were the next most highly rated with the mystery, documentary, and film noir genres making up the 6th-8th top rated genres respectively.
